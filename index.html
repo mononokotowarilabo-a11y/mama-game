@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ママ耐久連打ゲーム</title>
+
+<style>
+body{
+  margin:0;
+  background:#fff8fb;
+  font-family:"Yu Gothic",sans-serif;
+  text-align:center;
+  color:#263238;
+}
+
+.game{
+  max-width:430px;
+  margin:auto;
+  padding:8px 12px 78px;
+  box-sizing:border-box;
+}
+
+h1{
+  font-size:24px;
+  margin:8px 0 8px;
+}
+
+.stage{
+  background:#fff;
+  border:4px solid #263238;
+  border-radius:24px;
+  padding:10px 12px 8px;
+  margin-top:4px;
+  box-shadow:0 6px 0 #26323822;
+  position:relative;
+  overflow:hidden;
+}
+
+/* HP */
+#hpImg{
+  width:72%;
+  max-width:280px;
+  display:block;
+  margin:0 auto 2px;
+}
+
+#hpText{
+  font-weight:bold;
+  font-size:14px;
+  margin:0 0 2px;
+}
+
+/* ママ */
+#mama{
+  width:62%;
+  max-width:250px;
+  height:185px;
+  object-fit:contain;
+  display:block;
+  margin:0 auto;
+}
+
+/* ママポコポコ */
+#mama.pop{
+  animation:pop .18s ease;
+}
+
+@keyframes pop{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.28) rotate(-3deg)}
+  70%{transform:scale(0.95) rotate(3deg)}
+  100%{transform:scale(1) rotate(0)}
+}
+
+/* ブルブル（transform使わないようにする） */
+.shake{
+  animation:shake .15s infinite;
+}
+
+@keyframes shake{
+  0%{left:0}
+  25%{left:-3px}
+  50%{left:3px}
+  75%{left:-3px}
+  100%{left:0}
+}
+
+/* 成功演出 */
+.flash{
+  animation:flash .7s ease;
+}
+
+@keyframes flash{
+  0%{background:#fff}
+  30%{background:#fff67f}
+  60%{background:#a9e7bb}
+  100%{background:#fff}
+}
+
+.confetti{
+  position:absolute;
+  width:10px;
+  height:18px;
+  top:-20px;
+  animation:fall 1.2s linear forwards;
+}
+
+@keyframes fall{
+  to{
+    transform:translateY(620px) rotate(720deg);
+    opacity:0;
+  }
+}
+
+/* UI */
+#message{
+  font-size:21px;
+  font-weight:bold;
+  min-height:48px;
+  margin:4px 0;
+}
+
+#eventImg{
+  width:52%;
+  max-width:205px;
+  height:145px;
+  object-fit:contain;
+}
+
+#timer{
+  font-size:18px;
+  font-weight:bold;
+  color:#e84a7a;
+}
+
+button{
+  width:100%;
+  margin-top:8px;
+  padding:15px;
+  border:4px solid #263238;
+  border-radius:999px;
+  font-size:18px;
+  font-weight:bold;
+  background:#fff67f;
+  box-shadow:0 5px 0 #263238;
+}
+
+#tapBtn{
+  position:fixed;
+  bottom:8px;
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+  max-width:390px;
+  z-index:999;
+  background:#a9e7bb;
+  font-size:24px;
+  padding:16px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="game">
+  <h1>ママ耐久連打ゲーム</h1>
+
+  <div id="stage" class="stage">
+    <img id="hpImg" src="images/hp_green.png">
+    <p id="hpText">HP：100</p>
+
+    <img id="mama" src="images/mama_normal.png">
+
+    <p id="message">スタートを押してね</p>
+
+    <img id="eventImg" src="images/heal_choco.png">
+
+    <p id="timer">待機中</p>
+  </div>
+
+  <button onclick="startRound()">事件スタート</button>
+  <button onclick="resetGame()">もう一回</button>
+</div>
+
+<button id="tapBtn" onclick="tapRecover()">連打！！</button>
+
+<script>
+let hp = 100;
+let taps = 0;
+let timeLeft = 5;
+let playing = false;
+let timerId = null;
+let damage = 0;
+
+const events = [
+  {text:"トイレノック！",img:"damage_knock.png",d:20},
+  {text:"ジュースこぼした！",img:"damage_juice.png",d:25},
+  {text:"絵本エンドレス！",img:"damage_books.png",d:20},
+  {text:"やらかしてる！",img:"damage_toys.png",d:28},
+  {text:"寝たのに起きた！",img:"child_active.png",d:30}
+];
+
+const heals = [
+  {text:"チョコ！",img:"heal_choco.png",h:10},
+  {text:"コーヒー！",img:"heal_coffee.png",h:12},
+  {text:"寝た！！",img:"heal_sleep.png",h:25}
+];
+
+function startRound(){
+  if(playing || hp<=0)return;
+
+  let e = events[Math.floor(Math.random()*events.length)];
+  damage = e.d;
+  taps = 0;
+  timeLeft = 5;
+  playing = true;
+
+  show(e.text+"<br>連打！！！", "mama_tired.png", e.img);
+
+  const stage = document.getElementById("stage");
+
+  // ★完全リセット
+  stage.classList.remove("shake");
+  stage.classList.remove("flash");
+  stage.style.left = "0px";
+
+  void stage.offsetWidth;
+
+  // ★再発火
+  stage.classList.add("shake");
+
+  timerId = setInterval(()=>{
+    timeLeft--;
+    document.getElementById("timer").innerText="残り："+timeLeft+"秒 / 連打："+taps;
+
+    if(timeLeft<=0)finish();
+  },1000);
+}
+
+function tapRecover(){
+  if(!playing)return;
+  taps++;
+
+  const mama = document.getElementById("mama");
+  mama.classList.remove("pop");
+  void mama.offsetWidth;
+  mama.classList.add("pop");
+}
+
+function finish(){
+  clearInterval(timerId);
+  playing=false;
+
+  const stage = document.getElementById("stage");
+
+  stage.classList.remove("shake");
+  stage.style.left = "0px";
+
+  let reduce = taps*2;
+  let final = damage - reduce;
+
+  if(final<=0){
+    let r = heals[Math.floor(Math.random()*heals.length)];
+    hp+=r.h;
+    if(hp>100)hp=100;
+    show("耐えた！！"+r.text, "mama_heal.png", r.img);
+    successEffect();
+  }else{
+    hp-=final;
+    show("削られた…-"+final, "mama_dead.png", "mama_melt.png");
+  }
+
+  updateHp();
+}
+
+function successEffect(){
+  const stage = document.getElementById("stage");
+
+  stage.classList.remove("flash");
+  void stage.offsetWidth;
+  stage.classList.add("flash");
+
+  for(let i=0;i<25;i++){
+    const c = document.createElement("div");
+    c.className="confetti";
+    c.style.left=Math.random()*100+"%";
+    c.style.background=["#f19ec2","#fff67f","#83ccd5","#a9e7bb"][Math.floor(Math.random()*4)];
+    stage.appendChild(c);
+    setTimeout(()=>c.remove(),1500);
+  }
+}
+
+function show(text,mama,img){
+  document.getElementById("message").innerHTML=text;
+  document.getElementById("mama").src="images/"+mama;
+  document.getElementById("eventImg").src="images/"+img;
+}
+
+function updateHp(){
+  if(hp<0)hp=0;
+  document.getElementById("hpText").innerText="HP："+hp;
+
+  if(hp>60){
+    document.getElementById("hpImg").src="images/hp_green.png";
+  }else if(hp>30){
+    document.getElementById("hpImg").src="images/hp_yellow.png";
+  }else{
+    document.getElementById("hpImg").src="images/hp_red.png";
+  }
+}
+
+function resetGame(){
+  clearInterval(timerId);
+  hp=100;
+  playing=false;
+  updateHp();
+
+  const stage = document.getElementById("stage");
+  stage.classList.remove("shake");
+  stage.classList.remove("flash");
+  stage.style.left = "0px";
+
+  show("スタートを押してね","mama_normal.png","heal_choco.png");
+  document.getElementById("timer").innerText="待機中";
+}
+</script>
+
+</body>
+</html>
